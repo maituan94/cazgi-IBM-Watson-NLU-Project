@@ -1,76 +1,90 @@
+const getNLUInstance = require('./NLU')
+const constant = require('./constant')
 const express = require('express');
 const app = new express();
 
 /*This tells the server to use the client 
 folder for all static resources*/
+var urlRouter = express.Router();
+var textRouter = express.Router();
 app.use(express.static('client'));
 
 /*This tells the server to allow cross origin references*/
 const cors_app = require('cors');
 app.use(cors_app());
+app.use('/url', urlRouter)
+app.use('/text', textRouter)
 
-/*Uncomment the following lines to loan the environment 
-variables that you set up in the .env file*/
+const getAnalyzeParams = (urlOrText, text, featureKeyWord, limit = 1) => {
+    if (!urlOrText || !text || !featureKeyWord || !constant.FEATURE_KEYWORD.includes(featureKeyWord) || !constant.URL_OR_TEXT.includes(urlOrText)) return null;
 
-// const dotenv = require('dotenv');
-// dotenv.config();
+    return analyzeParams = {
+        [urlOrText]: text,
+        features: {
+            keywords: {
+                [featureKeyWord]: true,
+                limit
+            }
+        }
+    }
+}
+// response to server base on the analyze params
+function returnToClient(analyzeParams, res, keyResults) {
+    if (!analyzeParams) {
+        console.log("Params is missing");
+        return res.status(403).send({
+            status: "failed",
+            message: "Params is missing"
+        });
+    }
+    const naturalLanguageUnderstanding = getNLUInstance();
 
-// const api_key = process.env.API_KEY;
-// const api_url = process.env.API_URL;
-
-function getNLUInstance() {
-    /*Type the code to create the NLU instance and return it.
-    You can refer to the image in the instructions document
-    to do the same.*/
+    naturalLanguageUnderstanding.analyze(analyzeParams)
+        .then(analysisResults => {
+            // console.log(analysisResults)
+            return res.status(200).send({
+                results:analysisResults.result.keywords[0][keyResults]
+            });
+        })
+        .catch(err => {
+            res.status(500).send({
+                status: "failed",
+                message: "Internal Server Error"
+            })
+        });
 }
 
-
 //The default endpoint for the webserver
-app.get("/",(req,res)=>{
-    res.render('index.html');
-  });
+app.get("/", (req, res) => {
+    res.send('index.html');
+});
 
 //The endpoint for the webserver ending with /url/emotion
-app.get("/url/emotion", (req,res) => {
-    // //Extract the url passed from the client through the request object
-    // let urlToAnalyze = req.query.url
-    // const analyzeParams = 
-    //     {
-    //         "url": urlToAnalyze,
-    //         "features": {
-    //             "keywords": {
-    //                             "emotion": true,
-    //                             "limit": 1
-    //                         }
-    //         }
-    //     }
-     
-    //  const naturalLanguageUnderstanding = getNLUInstance();
-     
-    //  naturalLanguageUnderstanding.analyze(analyzeParams)
-    //  .then(analysisResults => {
-    //     //Print the JSON returned by NLU instance as a formatted string
-    //     console.log(JSON.stringify(analysisResults.result.keywords[0].emotion,null,2));
-    //     //Please refer to the image to see the order of retrieval
-    //     return res.send(analysisResults.result.keywords[0].emotion,null,2);
-    //  })
-    //  .catch(err => {
-    //  return res.send("Could not do desired operation "+err);
-    //  });
+urlRouter.get('/emotion', (req, res) => {
+    let urlToAnalyze = req.query.url
+    const analyzeParams = getAnalyzeParams('url', urlToAnalyze, "emotion", 1);
+    return returnToClient(analyzeParams, res, "emotion");
 });
 
 //The endpoint for the webserver ending with /url/sentiment
-app.get("/url/sentiment", (req,res) => {
-    return res.send("url sentiment for "+req.query.url);
+urlRouter.get('/sentiment', (req, res) => {
+    let urlToAnalyze = req.query.url
+    const analyzeParams = getAnalyzeParams('url', urlToAnalyze, "sentiment", 1);
+    return returnToClient(analyzeParams, res, "sentiment");
 });
 
 //The endpoint for the webserver ending with /text/emotion
-app.get("/text/emotion", (req,res) => {
-    return res.send({"happy":"10","sad":"90"});
+textRouter.get('/emotion', (req, res) => {
+    
+    let textToAnalyze = req.query.text
+    const analyzeParams = getAnalyzeParams('text', textToAnalyze, "emotion", 1);
+    return returnToClient(analyzeParams, res, "emotion");
 });
 
-app.get("/text/sentiment", (req,res) => {
-    return res.send("text sentiment for "+req.query.text);
+textRouter.get('/sentiment', (req, res) => {
+    let textToAnalyze = req.query.text
+    const analyzeParams = getAnalyzeParams('text', textToAnalyze, "sentiment", 1);
+    return returnToClient(analyzeParams, res, "sentiment");
 });
 
 let server = app.listen(8080, () => {
