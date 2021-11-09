@@ -56,7 +56,7 @@ function returnToClient(analyzeParams, res, keyResults) {
 
 //The default endpoint for the webserver
 app.get("/", (req, res) => {
-    res.send('index.html');
+    res.send('./build/index.html');
 });
 
 //The endpoint for the webserver ending with /url/emotion
